@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                  // Use modern JavaScript features
+    "module": "commonjs",                // Required for Node.js compatibility
+    "rootDir": ".",                      // Keep it simple for now
+    "outDir": "./dist",                  // Output folder (used for transpiling, optional here)
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]                    // Important: enables Node.js built-ins like 'path', 'process'
+  },
+  "include": ["framework", "tests", "config"]
+}
