@@ -1,3 +1,6 @@
+// +// This script is part of the FrostQA framework and is used to run tests with Playwright.
+// +// It allows for configuration through command line arguments and executes tests based on the specified group
+// +// and reporter.    
 interface CLIArgs {
     [key: string]: string;
 }

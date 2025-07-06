@@ -1,24 +1,61 @@
-// framework/compressor/frostqa-runner.ts
+ import dotenv from 'dotenv';
+dotenv.config();
 
-const { execSync } = require('child_process');
-const pathModule = require('path');
-import { loadFrostQAConfig } from './frostqa.config';
-const { parseCLIArgs } = require('./utils');
+import { execSync } from 'child_process';
+import path from 'path';
+import { FrostLogger } from '../condenser/frostqa-logger';
+import { AlertDispatcher } from '../smartalert/alertDispatcher';
 
-async function run() {
-  const args = parseCLIArgs(process.argv.slice(2));
-  const config = loadFrostQAConfig();
+// Get CLI arguments like --group=web
+const args = process.argv.slice(2);
+const groupArg = args.find(arg => arg.startsWith('--group='));
+const group = groupArg ? groupArg.split('=')[1] : 'web';
 
-  const group = args.group || 'regression';
-  const reporter = args.reporter || 'html';
+// Determine test directory
+const testDir = path.join('./tests', group);
 
-  console.log(`🚀 Starting FrostQA tests for group: ${group}`);
-  const testPath = pathModule.resolve(`./tests/${group}`);
+// Main test runner function
+function runFrostTests(group: string, testDir: string): void {
+  const logger = new FrostLogger(group);
+  logger.log(`🚀 Starting FrostQA tests for group: ${group}`);
+  logger.log(`📁 Test directory: ${testDir}`);
 
-  const command = `npx playwright test ${testPath} --reporter=${reporter}`;
-  execSync(command, { stdio: 'inherit' });
+  try {
+    const runTests = (): boolean => {
+      try {
+        execSync(`npx playwright test ${testDir} --reporter=html`, { stdio: 'inherit' });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    };
 
-  console.log('❄️ FrostQA execution completed.');
+    const firstAttemptPassed = runTests();
+
+    if (firstAttemptPassed) {
+      logger.log(`✅ Test run passed on first attempt`);
+    } else {
+      logger.log(`⚠️ Test run failed — retrying to check for flakiness...`);
+
+      const secondAttemptPassed = runTests();
+
+      if (secondAttemptPassed) {
+        logger.log(`❄️ Flaky test detected: Passed on retry`);
+        logger.trackFlaky(`Group: ${group}`);
+      } else {
+        logger.log(`💥 Test failed again — not flaky, it's broken.`);
+      }
+    }
+  } finally {
+    // ✅ Always close log and trigger alert
+    logger.close();
+    console.log('[FrostQA] Logger closed ✅');
+
+    const logsPath = path.join(__dirname, '../../logs');
+    console.log('[FrostQA] Dispatching summary alert...');
+    AlertDispatcher.sendSummaryAlert(logsPath);
+  }
 }
 
-run();
+// Run the tests
+runFrostTests(group, testDir);
